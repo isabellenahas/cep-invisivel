@@ -15,7 +15,7 @@ import branca.colormap as bcm
 import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / 'data'
+DATA = ROOT
 FOCUS = ('Brasilândia', 'Consolação')
 COSTS = {'Arborização': 5000, 'Rampa acessível':25000, 'Abrigo de ônibus':100000}
 CAPS = {('Brasilândia','Arborização'):80, ('Consolação','Arborização'):25,
