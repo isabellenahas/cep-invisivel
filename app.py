@@ -15,7 +15,7 @@ import branca.colormap as bcm
 import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT
+DATA = ROOT / 'data' if (ROOT / 'data' / 'dataset_ml.csv').exists() else ROOT
 FOCUS = ('Brasilândia', 'Consolação')
 COSTS = {'Arborização': 5000, 'Rampa acessível':25000, 'Abrigo de ônibus':100000}
 CAPS = {('Brasilândia','Arborização'):80, ('Consolação','Arborização'):25,
@@ -23,14 +23,6 @@ CAPS = {('Brasilândia','Arborização'):80, ('Consolação','Arborização'):25
         ('Brasilândia','Abrigo de ônibus'):4, ('Consolação','Abrigo de ônibus'):3}
 
 st.set_page_config(page_title='CEP Invisível | Inteligência Territorial', page_icon='🌳', layout='wide', initial_sidebar_state='expanded')
-st.markdown('''<style>
-.block-container{padding-top:1.8rem;max-width:1320px}
-.hero{background:linear-gradient(120deg,#172B38,#284955);color:white;padding:1.65rem 1.9rem;border-radius:16px;margin-bottom:1rem}
-.hero h1{font-size:2.2rem;margin:0 0 .4rem 0;color:white}.hero p{color:#e1e8e9;margin:0}
-.stMetric{border:1px solid #e8edf1;border-radius:12px;padding:10px 14px}
-.caption-note{font-size:.85rem;color:#64748b}
-</style>''', unsafe_allow_html=True)
-
 @st.cache_data(show_spinner=False)
 def load_data():
     df = pd.read_csv(DATA/'dataset_ml.csv', dtype={'CD_SETOR':'string'})
@@ -128,7 +120,7 @@ def render_map(focus,city,pred,kind='deficit'):
         fmap.fit_bounds([[min(lat),min(lon)],[max(lat),max(lon)]])
     scale.add_to(fmap)
     folium.LayerControl(collapsed=False).add_to(fmap)
-    components.html(fmap.get_root().render(),height=610,scrolling=False)
+    components.html(fmap.get_root().render(),height=620,scrolling=False)
 
 
 def build_candidates(df, weight):
@@ -160,108 +152,226 @@ def solve(candidates,budget):
     return out
 
 
+
+# ---------------------------------------------------------------------------------
+# CEP INVISÍVEL | Interface 2.0 — orientação a produto, sem alterar método científico
+# ---------------------------------------------------------------------------------
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
+:root {--ink:#112a31;--sub:#53646b;--line:#e5e9e7;--paper:#f7f9f8;--teal:#087b72;--mint:#d4efe7;--coral:#f27050}
+html, body, [class*="css"], [data-testid="stApp"]{font-family:'DM Sans',sans-serif}
+.stApp {background:var(--paper)}
+[data-testid="stSidebar"] {background:#f1f6f3;border-right:1px solid #dce6e0}
+[data-testid="stSidebar"] * {font-family:'DM Sans',sans-serif}
+[data-testid="stSidebar"] .stRadio label {font-weight:600}
+.block-container{max-width:1280px;padding-top:2rem;padding-bottom:5rem}
+h1,h2,h3,h4 {font-family:'Manrope',sans-serif!important;letter-spacing:-.035em;color:var(--ink)}
+h1 {font-weight:800!important}
+div[data-testid="stMetric"] {background:white;border:1px solid var(--line);border-radius:17px;padding:15px 18px;box-shadow:0 7px 24px rgba(14,44,37,.035)}
+[data-testid="stMetricLabel"] {color:#61736f;font-weight:600}
+[data-testid="stMetricValue"] {color:#16382f;font-family:'Manrope',sans-serif;letter-spacing:-.04em}
+[data-testid="stFileUploader"],div[data-testid="stDataFrame"] {border-radius:12px}
+.stButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#087b72;color:white;border-radius:12px;border:0;font-weight:750}
+.stButton button,.stDownloadButton button {border-radius:12px;font-weight:600}
+[data-testid="stHorizontalBlock"] {gap:1rem}
+.hero {position:relative;background:linear-gradient(115deg,#11343a 0%,#0e665e 72%,#0d8875 100%);padding:38px 42px;border-radius:24px;color:white;overflow:hidden;margin-bottom:24px}
+.hero::after{content:'';position:absolute;width:320px;height:320px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:-65px;top:-120px;box-shadow:0 0 0 55px rgba(255,255,255,.035),0 0 0 115px rgba(255,255,255,.025)}
+.hero .eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;color:#99e8d0;text-transform:uppercase;margin-bottom:16px}
+.hero h1{color:white!important;font-size:clamp(30px,4vw,49px)!important;line-height:1.13;margin:0 0 12px;font-weight:800}
+.hero p{font-size:16px;line-height:1.7;max-width:660px;color:#d6ebe6;margin:0}
+.hero .tag{display:inline-block;margin-top:20px;border:1px solid #82c6b5;color:#eafff7;border-radius:99px;padding:7px 12px;font-size:11px;font-weight:800}
+.section-kicker {font-size:11px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:var(--teal);margin:12px 0 4px}
+.section-title {font-family:'Manrope';font-size:27px;font-weight:800;letter-spacing:-.04em;color:var(--ink);margin:0 0 8px}
+.section-subtitle{font-size:14px;color:var(--sub);line-height:1.75;margin:0 0 22px}
+.story-card{background:white;border:1px solid var(--line);border-radius:18px;padding:24px 27px;margin:10px 0 24px}
+.story-card h3 {margin:0 0 8px;font-size:20px}
+.story-card p{color:var(--sub);line-height:1.75;margin-bottom:0}
+.stat-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 20px}
+.stat-tile {border:1px solid #d8e5df;border-radius:16px;padding:20px 22px;background:#eaf4ee}
+.stat-tile.dark{background:#173c3f;color:white;border-color:#173c3f}
+.stat-tile .sm{font-size:12px;font-weight:700;opacity:.75}
+.stat-tile .num{font-size:32px;letter-spacing:-.045em;font-weight:800;font-family:'Manrope'}
+.stat-tile .foot{font-size:12px;opacity:.75;margin-top:5px}
+.note {border-left:3px solid #0a8d79;border-radius:0 10px 10px 0;padding:11px 17px;background:#e8f5f0;color:#365d55;font-size:13px;line-height:1.7;margin:14px 0}
+.pill{display:inline-block;padding:6px 11px;border:1px solid #a1cfc1;border-radius:100px;color:#0d6255;background:#edf8f2;font-size:11px;font-weight:800;margin-right:6px}
+.footer {padding-top:30px;margin-top:30px;border-top:1px solid var(--line);color:#667873;font-size:12px;line-height:1.7}
+@media(max-width:750px){.hero{padding:27px 23px}.stat-strip{grid-template-columns:1fr}.block-container{padding-top:1rem}}
+</style>
+"""
+st.markdown(CSS,unsafe_allow_html=True)
+
+@st.cache_data(show_spinner=False)
+def observed_by_district(frame):
+    out=(frame[frame.distrito.isin(FOCUS)].groupby('distrito',as_index=False)
+       .agg(setores=('CD_SETOR','size'),faces=('V05400','sum'),sem=('V05430','sum'),populacao=('populacao_total','sum')))
+    out['deficit_pct']=100*out.sem/out.faces
+    return out.sort_values('distrito').reset_index(drop=True)
+
+def heading(kicker,title,subtitle=''):
+    st.markdown(f'<div class="section-kicker">{kicker}</div><div class="section-title">{title}</div><p class="section-subtitle">{subtitle}</p>',unsafe_allow_html=True)
+
+def plot_theme(fig,height=390):
+    fig.update_layout(height=height,font_family='DM Sans',font_color='#26413c',paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',
+                      margin=dict(l=15,r=15,t=35,b=25),legend_title_text='',
+                      xaxis=dict(showgrid=False,zeroline=False),yaxis=dict(gridcolor='#e2eae7',zeroline=False))
+    return fig
+
+def section_footer():
+    st.markdown('<div class="footer"><b>CEP Invisível · FIAP Global Solution 2026</b> · Dados oficiais IBGE Censo 2022 · Protótipo CitizenTech. Resultados observados, previsões e simulações representam conceitos diferentes. Nenhuma estimativa causal de impacto é apresentada.</div>',unsafe_allow_html=True)
+
+# Manter página e layout orientados ao público, não aos artefatos técnicos
+pages=['Panorama','Explorar territórios','Inteligência preditiva','Laboratório de cenários','Como funciona']
+with st.sidebar:
+    st.markdown('### ◈ CEP INVISÍVEL')
+    st.caption('INTELIGÊNCIA TERRITORIAL')
+    st.divider()
+    page=st.radio('EXPLORAR',pages,label_visibility='collapsed')
+    st.divider()
+    st.markdown('**ESCopo validado**')
+    st.caption('São Paulo · 96 distritos · Censo 2022')
+    st.caption('Brasilândia × Consolação')
+    st.markdown('<span class="pill">MVP acadêmico</span>',unsafe_allow_html=True)
+    st.divider()
+    st.caption('Os custos e as prioridades de rampas e abrigos são hipóteses, não observações oficiais.')
+
 df,pred,metrics,cv,district,base=load_data()
-st.markdown('''<div class="hero"><h1>CEP Invisível</h1><p>O endereço não deveria definir seu futuro · Inteligência territorial e decisão pública baseada em evidências</p></div>''',unsafe_allow_html=True)
-st.sidebar.markdown('### Explorar o projeto')
-page=st.sidebar.radio('Seção', ['Visão geral','Mapa territorial','Machine Learning','Simulador','Metodologia e fontes'],label_visibility='collapsed')
-st.sidebar.caption('São Paulo · Censo 2022 · Etapas 1.2–1.5')
-st.sidebar.info('Dados observados ≠ previsões ≠ pontuações hipotéticas. O protótipo não estima efeitos causais.')
+obs=observed_by_district(df)
+ob=obs.set_index('distrito')
+bra=float(ob.loc['Brasilândia','deficit_pct']); con=float(ob.loc['Consolação','deficit_pct'])
 
-obs=(df[df.distrito.isin(FOCUS)].groupby('distrito',as_index=False)
- .agg(setores=('CD_SETOR','size'),faces=('V05400','sum'),sem=('V05430','sum'),populacao=('populacao_total','sum')))
-obs['deficit_pct']=obs['sem']/obs['faces']*100
-obs=obs.sort_values('distrito')
+st.markdown("""<div class="hero"><div class="eyebrow">CitizenTech / São Paulo / Censo 2022</div>
+<h1>O endereço não deveria<br>definir seu futuro.</h1>
+<p>Transformamos dados urbanos em evidências visuais para entender desigualdades, avaliar previsões e explorar decisões de investimento com transparência.</p>
+<span class="tag">CEP INVISÍVEL · PROTÓTIPO ACADÊMICO</span></div>""",unsafe_allow_html=True)
 
-if page=='Visão geral':
-    st.subheader('Diagnóstico territorial observado')
+if page=='Panorama':
+    heading('01 / O DIAGNÓSTICO','Duas regiões. Realidades diferentes.',
+            'Um olhar comparativo sobre o déficit de arborização urbana, calculado a partir das faces de quadra pesquisadas pelo IBGE.')
     a,b,c,d=st.columns(4)
-    a.metric('Setores na base',f'{len(df):,}'.replace(',','.'))
+    a.metric('Setores analisados',f'{len(df):,}'.replace(',','.'))
     b.metric('Distritos em São Paulo',df.distrito.nunique())
-    c.metric('Brasilândia — déficit',pct(obs.set_index('distrito').loc['Brasilândia','deficit_pct']))
-    d.metric('Consolação — déficit',pct(obs.set_index('distrito').loc['Consolação','deficit_pct']))
-    left,right=st.columns([1.35,1])
+    c.metric('Brasilândia · sem árvores',pct(bra))
+    d.metric('Consolação · sem árvores',pct(con))
+    left,right=st.columns([1.25,.85],gap='large')
     with left:
-        st.plotly_chart(chart_bar(obs,'distrito','deficit_pct','Faces sem árvores por distrito', {'deficit_pct':'Faces sem árvores (%)'}),use_container_width=True)
+        fig=px.bar(obs,x='distrito',y='deficit_pct',color='distrito',text='deficit_pct',
+            color_discrete_map={'Brasilândia':'#df7752','Consolação':'#167d75'},
+            labels={'distrito':'','deficit_pct':'Faces sem árvores (%)'})
+        fig.update_traces(texttemplate='%{text:.2f}%',textposition='outside',marker_line_width=0)
+        fig.update_layout(showlegend=False,yaxis_range=[0,90])
+        st.plotly_chart(plot_theme(fig),use_container_width=True)
     with right:
-        st.markdown('#### Leitura dos resultados')
-        st.write('A Brasilândia apresenta aproximadamente 70,10% de faces pesquisadas sem árvores; na Consolação, 9,37%. Os resultados são agregados ponderados pelo número de faces, não pela população.')
-        st.dataframe(obs.rename(columns={'sem':'faces_sem_arvores','faces':'faces_pesquisadas'}),hide_index=True,use_container_width=True)
-    st.markdown('#### Diferenças de interpretação')
-    st.write('**Diagnóstico:** valores observados no Censo 2022. **ML:** estimativas estatísticas de arborização em setores mantidos fora do treino. **Simulador:** alocação ilustrativa baseada em custos, capacidades e pontuações hipotéticos.')
-    st.download_button('Exportar comparação observada',csv_bytes(obs),'comparacao_observada.csv','text/csv')
+        st.markdown(f"""<div class="story-card"><div class="section-kicker">O que os dados mostram</div><h3>{bra-con:.2f} pontos percentuais</h3>
+        <p>É a diferença entre os déficits agregados observados de arborização na Brasilândia e na Consolação.
+        O indicador é ponderado pelo número de faces pesquisadas, não pelo total de moradores.</p></div>""",unsafe_allow_html=True)
+        st.markdown('<div class="note">A arborização é o indicador territorial implementado com dados reais. O MVP não mede diretamente calor urbano ou acesso a equipamentos públicos.</div>',unsafe_allow_html=True)
+    heading('Explorar os dados','O que entra na comparação','Total de faces pesquisadas, faces sem árvores e população residente nos setores elegíveis.')
+    st.dataframe(obs.rename(columns={'distrito':'Distrito','setores':'Setores','faces':'Faces pesquisadas','sem':'Faces sem árvores','populacao':'População nos setores','deficit_pct':'Déficit (%)'}),hide_index=True,use_container_width=True)
+    st.download_button('Baixar comparação em CSV',csv_bytes(obs),'comparacao_territorial.csv','text/csv')
 
-elif page=='Mapa territorial':
-    st.subheader('Mapa territorial — São Paulo')
-    st.caption('Município inteiro em cinza claro; somente Brasilândia e Consolação em destaque. Mapas sem servidor externo de tiles.')
-    st.markdown('**Carregue o ZIP da Etapa 1.4 v4** (arquivo `CEP_Invisivel_1_4_resultados.zip` gerado no seu Colab).')
-    geo_path=DATA/'setores_dois_distritos_mapa.geojson';city_path=DATA/'municipio_sp_contexto.geojson'
-    if geo_path.exists() and city_path.exists():
-        focus=json.loads(geo_path.read_text(encoding='utf-8'));city=json.loads(city_path.read_text(encoding='utf-8'))
+elif page=='Explorar territórios':
+    heading('02 / GEOGRAFIA','Onde a desigualdade aparece','O município é exibido como contexto; apenas Brasilândia e Consolação possuem setores destacados e dados observados nesta visualização.')
+    geo_path=DATA/'setores_dois_distritos_mapa.geojson'; city_path=DATA/'municipio_sp_contexto.geojson'
+    if geo_path.is_file() and city_path.is_file():
+        try:
+            focus=json.loads(geo_path.read_text(encoding='utf-8'))
+            city=json.loads(city_path.read_text(encoding='utf-8'))
+            if len(focus.get('features',[]))!=740 or not city.get('features'):
+                raise ValueError('GeoJSONs locais não correspondem aos dados homologados')
+        except (ValueError,json.JSONDecodeError) as e:
+            st.error(f'Arquivos geográficos inválidos: {e}');st.stop()
+        st.success('Geometrias locais carregadas. Os visitantes não precisam enviar arquivos.')
     else:
-        uploaded=st.file_uploader('ZIP geográfico homologado',type=['zip'],key='geo')
+        with st.container(border=True):
+            st.markdown('**Carregar os mapas homologados**')
+            st.caption('Envie `CEP_Invisivel_1_4_resultados.zip`, produzido na Etapa 1.4. Nenhuma geometria será simulada.')
+            uploaded=st.file_uploader('Arquivo ZIP geográfico',type=['zip'],key='geo')
         if uploaded is None:
-            st.warning('Os dados tabulares estão incluídos no pacote. Os mapas precisam do ZIP geográfico da Etapa 1.4, que não foi disponibilizado nesta sessão. Sem esse arquivo não serão exibidas geometrias inventadas.')
+            st.info('Os indicadores estão disponíveis. Para visualizar os polígonos, envie o ZIP da Etapa 1.4; se você publicar os dois GeoJSONs junto aos CSVs no GitHub, eles aparecerão automaticamente para todos.')
             st.stop()
-        try:focus,city=parse_geo(uploaded.getvalue())
+        try: focus,city=parse_geo(uploaded.getvalue())
         except (ValueError,zipfile.BadZipFile,KeyError,TypeError) as e:
-            st.error(f'Não foi possível validar o ZIP: {e}');st.stop()
-    choice=st.radio('Camada temática',['Déficit observado','Resíduos do ML'],horizontal=True)
+            st.error(f'O ZIP não passou na validação: {e}');st.stop()
+    choice=st.radio('Indicador exibido',['Déficit observado','Erro do modelo'],horizontal=True)
     render_map(focus,city,pred,'deficit' if choice=='Déficit observado' else 'residuo')
-    st.caption('Resíduos = observado menos previsto. Valores positivos indicam subestimação. As previsões são do conjunto de teste.')
+    st.markdown('<div class="note">Mapa interativo sem mosaicos externos. Resíduo positivo significa que o modelo subestimou o déficit observado. Os dois distritos estão no conjunto de teste.</div>',unsafe_allow_html=True)
 
-elif page=='Machine Learning':
-    st.subheader('Avaliação supervisionada — conjunto de teste')
-    st.caption('Modelos já treinados na Etapa 1.3; o aplicativo apresenta resultados e não refaz o treinamento.')
-    st.dataframe(metrics,hide_index=True,use_container_width=True)
-    st.markdown('**Validação cruzada no treino**')
-    st.dataframe(cv,hide_index=True,use_container_width=True)
+elif page=='Inteligência preditiva':
+    heading('03 / MACHINE LEARNING','Onde a previsão ajuda — e onde falha','Comparação supervisionada com validação cruzada por distrito, sem reutilizar o conjunto de teste para escolher o melhor modelo.')
+    m=metrics.set_index('modelo')
+    rf=m.loc['Random Forest']
+    a,b,c=st.columns(3)
+    a.metric('MAE · Random Forest',f'{rf.MAE_pp:.2f} p.p.'.replace('.',','))
+    b.metric('RMSE · Random Forest',f'{rf.RMSE_pp:.2f} p.p.'.replace('.',','))
+    c.metric('R² no conjunto de teste',f'{rf.R2:.3f}'.replace('.',','))
+    st.markdown('#### Comparação com os modelos de referência')
+    fig=px.bar(metrics,x='modelo',y='MAE_pp',color='modelo',text='MAE_pp',
+               color_discrete_map={'Random Forest':'#087b72','Ridge':'#6b9f97','Baseline média':'#e7a08e'},
+               labels={'modelo':'Modelo','MAE_pp':'Erro absoluto médio (p.p.)'})
+    fig.update_traces(texttemplate='%{text:.2f}',textposition='outside')
+    fig.update_layout(showlegend=False,yaxis_range=[0,33])
+    st.plotly_chart(plot_theme(fig,320),use_container_width=True)
+    st.markdown('#### Observado × previsto: os dois territórios demonstrativos')
     p=pred[pred.distrito.isin(FOCUS)].copy()
-    fig=px.scatter(p,x='pct_faces_sem_arvores',y='previsao_escolhida_bruta',color='distrito',opacity=.55,
-        labels={'pct_faces_sem_arvores':'Observado (%)','previsao_escolhida_bruta':'Previsto (%)'},
-        title='Observado × previsto — setores de teste')
-    fig.add_shape(type='line',x0=0,y0=0,x1=100,y1=100,line={'dash':'dash','color':'#64748b'})
+    fig=px.scatter(p,x='pct_faces_sem_arvores',y='previsao_escolhida_bruta',color='distrito',opacity=.46,
+         color_discrete_map={'Brasilândia':'#df7752','Consolação':'#087b72'},
+         hover_data=['CD_SETOR'],labels={'pct_faces_sem_arvores':'Déficit observado (%)','previsao_escolhida_bruta':'Déficit previsto (%)','distrito':'Distrito'})
+    fig.add_shape(type='line',x0=0,y0=0,x1=100,y1=100,line=dict(dash='dash',color='#849592'))
     fig.update_layout(xaxis_range=[0,100],yaxis_range=[0,100])
-    st.plotly_chart(fig,use_container_width=True)
-    per=(p.groupby('distrito',as_index=False).agg(MAE_pp=('erro_absoluto','mean'),
-        vies_medio_pp=('residuo_observado_menos_previsto','mean'),setores=('CD_SETOR','size')))
-    st.dataframe(per,hide_index=True,use_container_width=True)
-    st.warning('A Random Forest superestima parte dos setores com déficit baixo e subestima déficits extremos. O erro é maior na Brasilândia; não utilizar predições isoladas como critério de investimento.')
+    st.plotly_chart(plot_theme(fig,490),use_container_width=True)
+    err=(p.groupby('distrito',as_index=False).agg(MAE_pp=('erro_absoluto','mean'),vies_pp=('residuo_observado_menos_previsto','mean'),setores=('CD_SETOR','size')))
+    st.dataframe(err,hide_index=True,use_container_width=True)
+    with st.expander('Ver validação cruzada e hiperparâmetros'):
+        st.dataframe(cv,hide_index=True,use_container_width=True)
+    st.markdown('<div class="note"><b>Limitação importante:</b> o modelo tem desempenho moderado (R² ≈ 0,345) e tende a subestimar déficits altos, inclusive na Brasilândia. Não é uma estimativa causal nem substitui o indicador observado.</div>',unsafe_allow_html=True)
 
-elif page=='Simulador':
-    st.subheader('Simulador orçamentário — hipóteses, não impacto comprovado')
-    st.caption('Custos e capacidades foram definidos para a demonstração, sem inventário validado de rampas ou abrigos. Somente arborização utiliza déficit local observado.')
-    col1,col2=st.columns(2)
-    budget=col1.slider('Orçamento hipotético (R$)',100_000,2_000_000,1_000_000,step=25_000,format='%d')
-    weight=col2.slider('Peso hipotético da arborização',0.0,3.0,1.0,step=.25)
-    candidates=build_candidates(df,weight)
-    allocation=solve(candidates,budget)
+elif page=='Laboratório de cenários':
+    heading('04 / SIMULAÇÃO','E se tivéssemos R$ 1 milhão?','Um laboratório transparente de escolhas com orçamento limitado, quantidades inteiras e premissas hipotéticas — não uma recomendação de investimento público.')
+    left,right=st.columns([1,1],gap='large')
+    with left:
+        budget=st.slider('Orçamento disponível (R$)',100_000,2_000_000,1_000_000,step=25_000,format='%d')
+    with right:
+        weight=st.slider('Importância relativa da arborização',0.0,3.0,1.0,step=.25,help='Parâmetro normativo do cenário; não mede causalidade.')
+    allocation=solve(build_candidates(df,weight),budget)
     spent=int(allocation.gasto_RL.sum())
-    m1,m2,m3=st.columns(3)
-    m1.metric('Orçamento',brl(budget));m2.metric('Alocado',brl(spent));m3.metric('Saldo',brl(budget-spent))
+    a,b,c=st.columns(3)
+    a.metric('Orçamento',brl(budget));b.metric('Alocado',brl(spent));c.metric('Saldo',brl(budget-spent))
     view=allocation.pivot(index='distrito',columns='intervencao',values='gasto_RL').fillna(0).reset_index()
     melted=view.melt(id_vars='distrito',var_name='Intervenção',value_name='Gasto (R$)')
-    fig=px.bar(melted,x='distrito',y='Gasto (R$)',color='Intervenção',barmode='stack',title='Carteira calculada — valores hipotéticos')
-    st.plotly_chart(fig,use_container_width=True)
-    cols=['distrito','intervencao','unidades','gasto_RL','pontos_hipoteticos','base_da_demanda']
-    st.dataframe(allocation[cols],hide_index=True,use_container_width=True)
-    st.metric('Pontuação normativa ilustrativa',f'{allocation.pontos_hipoteticos.sum():.2f}')
+    fig=px.bar(melted,x='distrito',y='Gasto (R$)',color='Intervenção',barmode='stack',
+      color_discrete_map={'Arborização':'#087b72','Rampa acessível':'#df7752','Abrigo de ônibus':'#6d8bc6'},
+      labels={'distrito':'Distrito'})
+    st.plotly_chart(plot_theme(fig,410),use_container_width=True)
+    st.markdown('#### A carteira calculada')
+    st.dataframe(allocation[['distrito','intervencao','unidades','gasto_RL','pontos_hipoteticos','base_da_demanda']],hide_index=True,use_container_width=True)
+    st.metric('Pontuação normativa ilustrativa',f'{allocation.pontos_hipoteticos.sum():.2f}'.replace('.',','))
     if budget==1_000_000 and weight==1.0:
         check=allocation.sort_values(['distrito','intervencao']).reset_index(drop=True)
         target=base[['distrito','intervencao','unidades_selecionadas']].sort_values(['distrito','intervencao']).reset_index(drop=True)
-        assert check.unidades.tolist()==target.unidades_selecionadas.tolist(), 'A solução padrão divergiu dos resultados homologados'
-        st.success('Configuração padrão reproduz a alocação da Etapa 1.5.')
-    st.download_button('Exportar carteira do cenário',csv_bytes(allocation),'carteira_hipotetica.csv','text/csv')
-    st.info('A maximização usa pontos hipotéticos por unidade. Alterar o peso não comprova maior benefício social e não constitui estimativa causal ou recomendação de política pública.')
+        if check.unidades.tolist()==target.unidades_selecionadas.tolist():
+            st.success('Carteira de referência da Etapa 1.5 reproduzida.')
+        else:st.error('A carteira divergiu dos resultados homologados. Verifique os arquivos de entrada.')
+    st.download_button('Exportar alocação deste cenário',csv_bytes(allocation),'carteira_hipotetica.csv','text/csv')
+    st.markdown('<div class="note"><b>O que é real?</b> O déficit observado de arborização. <b>O que é hipótese?</b> Custos, capacidades, prioridades de rampas/abrigos e pontos por unidade. Alterar os controles não prevê benefícios reais.</div>',unsafe_allow_html=True)
 
 else:
-    st.subheader('Metodologia e transparência')
-    st.markdown('''**Fonte:** IBGE Censo Demográfico 2022 — agregados setoriais de entorno, população, renda e malha geográfica.\n
-**Unidade:** setor censitário, com comparação agregada por faces pesquisadas.\n
-**Alvo supervisionado:** `100 × V05430 / V05400` (faces sem árvores / faces pesquisadas).\n
-**Experimento:** Ridge e Random Forest, separação por distritos, validação cruzada por grupos exclusivamente no treino.\n
-**Conjunto de teste:** inclui integralmente Brasilândia e Consolação, além de outros 19 distritos.\n
-**Limitações:** corte transversal de 2022; ausência de inventários reais de rampas/abrigos; desempenho preditivo moderado; modelo não identifica efeito causal.\n
-**Escopo realmente implementado:** arborização, diagnóstico, avaliação de modelos e alocação hipotética. Saúde, educação, transporte efetivo e calor urbano não possuem indicadores integrados nesta versão.\n
-**Arquivos e integridade:** os CSVs homologados estão incluídos no pacote para permitir auditoria e reprodução. O pacote geográfico de 1.4 deve ser fornecido separadamente.''')
-    st.download_button('Baixar dicionário básico de dados', (ROOT/'DICIONARIO.md').read_bytes(), 'DICIONARIO.md','text/markdown')
-    st.caption('Projeto acadêmico CitizenTech. Sem inferência causal e sem autorização para uso operacional em decisões públicas.')
+    heading('05 / TRANSPARÊNCIA','Ciência antes da narrativa','A proposta só é útil quando é possível distinguir evidência observada, previsão estatística e hipótese de decisão.')
+    with st.container(border=True):
+        st.markdown('#### Fontes e rastreabilidade')
+        st.markdown('**Fonte:** IBGE Censo Demográfico 2022 — agregados setoriais de entorno, população, renda e malha geográfica. **Unidade:** setor censitário. **Alvo:** `100 × V05430 / V05400`.')
+        st.markdown('**Dataset:** 26.416 setores elegíveis de São Paulo. **Recorte demonstrativo:** Brasilândia e Consolação.')
+        st.markdown('**Machine Learning:** Ridge e Random Forest, separação por distritos, GroupKFold apenas no treino; MAE, RMSE e R² no conjunto de teste.')
+        st.markdown('**Simulador:** otimização inteira com custos, capacidades e pontuações normativas hipotéticas. Não mede efeitos causais.')
+    with st.expander('Riscos, vieses e limitações',expanded=True):
+        st.markdown("""- A medição é transversal, referente a **2022**, e não representa previsão temporal.
+- Setores com poucas faces pesquisadas possuem maior variabilidade da proporção observada.
+- Os modelos têm erros expressivos nos extremos e podem subestimar territórios com déficit alto.
+- A proximidade espacial e a representatividade do conjunto de teste limitam a generalização.
+- O MVP não integra indicadores validados de saúde, educação, transporte efetivo ou calor urbano.
+- Custos e pontuações de cenários são hipóteses, sem comprovação de impacto público.""")
+    st.markdown('#### Arquivos disponíveis para auditoria')
+    st.download_button('Baixar dicionário de dados (CSV)',csv_bytes(df.head(0)),'campos_dataset.csv','text/csv')
+    st.markdown('**Repositório e execução:** o projeto técnico original inclui notebooks executados no Google Colab. O Streamlit exibe resultados e não refaz o treinamento.')
+
+section_footer()
