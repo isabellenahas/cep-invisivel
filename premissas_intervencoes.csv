@@ -1,0 +1,7 @@
+﻿distrito,intervencao,custo_unitario_hipotetico_RL,capacidade_hipotetica,pontos_hipoteticos_por_unidade,pct_sem_arvores_observado,evidencia_da_demanda
+Brasilândia,Arborização,5000,80,1.7019138755980863,70.09569377990431,IBGE: arborização observada
+Consolação,Arborização,5000,25,0.48743343982960596,9.371671991480298,IBGE: arborização observada
+Brasilândia,Rampa acessível,25000,12,4.0,70.09569377990431,NÃO medida neste MVP
+Consolação,Rampa acessível,25000,8,4.0,9.371671991480298,NÃO medida neste MVP
+Brasilândia,Abrigo de ônibus,100000,4,12.0,70.09569377990431,NÃO medida neste MVP
+Consolação,Abrigo de ônibus,100000,3,12.0,9.371671991480298,NÃO medida neste MVP
