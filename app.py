@@ -165,7 +165,10 @@ CSS = """
 :root {--ink:#112a31;--sub:#53646b;--line:#e5e9e7;--paper:#f7f9f8;--teal:#087b72;--mint:#d4efe7;--coral:#f27050}
 html, body, [class*="css"], [data-testid="stApp"]{font-family:'DM Sans',sans-serif}
 .stApp {background:var(--paper)}
-.block-container{max-width:1280px;padding-top:1.2rem;padding-bottom:4rem}
+/* Respeita a barra nativa fixa do Streamlit, sem ocultar controles */
+[data-testid="stMainBlockContainer"],
+[data-testid="stMain"] .block-container,
+.block-container{max-width:1280px;padding-top:5.25rem!important;padding-bottom:4rem}
 h1,h2,h3,h4 {font-family:'Manrope',sans-serif!important;letter-spacing:-.035em;color:var(--ink)}
 h1 {font-weight:800!important}
 div[data-testid="stMetric"] {background:white;border:1px solid var(--line);border-radius:17px;padding:15px 18px;box-shadow:0 7px 24px rgba(14,44,37,.035)}
@@ -207,7 +210,7 @@ div[data-testid="stMetric"] {background:white;border:1px solid var(--line);borde
 .st-key-pagina_principal label {padding:8px 12px;border-radius:10px;margin:0;font-size:13px;font-weight:650;transition:background .15s}
 .st-key-pagina_principal label:has(input:checked) {background:#e3f3ed!important;color:#065f53!important}
 .st-key-pagina_principal label:hover {background:#edf4f0}
-@media(max-width:750px){.hero{padding:16px 18px}.hero h1{font-size:24px!important}.topbar{padding:10px 12px}.topbar .meta{display:none}.stat-strip{grid-template-columns:1fr}.block-container{padding-top:1rem}}
+@media(max-width:750px){.hero{padding:16px 18px}.hero h1{font-size:24px!important}.topbar{padding:10px 12px}.topbar .meta{display:none}.stat-strip{grid-template-columns:1fr}[data-testid="stMainBlockContainer"],.block-container{padding-top:4.5rem!important}}
 </style>
 """
 st.markdown(CSS,unsafe_allow_html=True)
