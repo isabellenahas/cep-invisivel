@@ -22,7 +22,7 @@ CAPS = {('Brasilândia','Arborização'):80, ('Consolação','Arborização'):25
         ('Brasilândia','Rampa acessível'):12, ('Consolação','Rampa acessível'):8,
         ('Brasilândia','Abrigo de ônibus'):4, ('Consolação','Abrigo de ônibus'):3}
 
-st.set_page_config(page_title='CEP Invisível | Inteligência Territorial', page_icon='🌳', layout='wide', initial_sidebar_state='expanded')
+st.set_page_config(page_title='CEP Invisível | Inteligência Territorial', page_icon='🌳', layout='wide', initial_sidebar_state='collapsed')
 @st.cache_data(show_spinner=False)
 def load_data():
     df = pd.read_csv(DATA/'dataset_ml.csv', dtype={'CD_SETOR':'string'})
@@ -49,28 +49,31 @@ def chart_bar(data,x,y,title,labels=None):
     fig.update_layout(showlegend=False,plot_bgcolor='white',yaxis_range=[0,max(data[y])*1.2 if len(data) else 100],margin=dict(t=60,b=30))
     return fig
 
-@st.cache_data(show_spinner=False)
-def parse_geo(archive: bytes):
-    """Read only validated output features; never infer or invent geographic polygons."""
-    with zipfile.ZipFile(io.BytesIO(archive)) as z:
-        members = z.namelist()
-        target=next((n for n in members if n.endswith('setores_dois_distritos_mapa.geojson')),None)
-        context=next((n for n in members if n.endswith('municipio_sp_contexto.geojson')),None)
-        if target is None or context is None:
-            raise ValueError('ZIP precisa conter setores_dois_distritos_mapa.geojson e municipio_sp_contexto.geojson (Etapa 1.4 v4).')
-        if z.getinfo(target).file_size>30_000_000 or z.getinfo(context).file_size>10_000_000:
-            raise ValueError('GeoJSON acima do limite de segurança')
-        focus=json.loads(z.read(target)); city=json.loads(z.read(context))
+def validate_geo(focus,city):
+    """Usa apenas a malha homologada de 740 setores e contexto municipal real."""
     if focus.get('type')!='FeatureCollection' or city.get('type')!='FeatureCollection':
-        raise ValueError('GeoJSON inválido')
+        raise ValueError('GeoJSON não é uma FeatureCollection')
     observed=focus.get('features',[])
     ids=[str(f.get('properties',{}).get('CD_SETOR','')) for f in observed]
     if len(observed)!=740 or len(ids)!=len(set(ids)):
-        raise ValueError('Esperados exatamente 740 setores únicos nos dois distritos')
+        raise ValueError('Esperados 740 setores únicos nos dois distritos')
     if set(f.get('properties',{}).get('distrito') for f in observed)!=set(FOCUS):
-        raise ValueError('Distritos não correspondem ao recorte aprovado')
+        raise ValueError('Distrito fora do recorte aprovado')
     if not city.get('features'):
-        raise ValueError('Contorno do município está vazio')
+        raise ValueError('Contorno do município vazio')
+
+@st.cache_data(show_spinner=False)
+def parse_geo(archive: bytes):
+    with zipfile.ZipFile(io.BytesIO(archive)) as z:
+        members=z.namelist()
+        target=next((n for n in members if n.endswith('setores_dois_distritos_mapa.geojson')),None)
+        context=next((n for n in members if n.endswith('municipio_sp_contexto.geojson')),None)
+        if not target or not context:
+            raise ValueError('ZIP sem os dois GeoJSONs finais da Etapa 1.4 v4')
+        if z.getinfo(target).file_size>30_000_000 or z.getinfo(context).file_size>10_000_000:
+            raise ValueError('GeoJSON acima do limite de segurança')
+        focus=json.loads(z.read(target));city=json.loads(z.read(context))
+    validate_geo(focus,city)
     return focus,city
 
 def render_map(focus,city,pred,kind='deficit'):
@@ -162,10 +165,7 @@ CSS = """
 :root {--ink:#112a31;--sub:#53646b;--line:#e5e9e7;--paper:#f7f9f8;--teal:#087b72;--mint:#d4efe7;--coral:#f27050}
 html, body, [class*="css"], [data-testid="stApp"]{font-family:'DM Sans',sans-serif}
 .stApp {background:var(--paper)}
-[data-testid="stSidebar"] {background:#f1f6f3;border-right:1px solid #dce6e0}
-[data-testid="stSidebar"] * {font-family:'DM Sans',sans-serif}
-[data-testid="stSidebar"] .stRadio label {font-weight:600}
-.block-container{max-width:1280px;padding-top:2rem;padding-bottom:5rem}
+.block-container{max-width:1280px;padding-top:1.2rem;padding-bottom:4rem}
 h1,h2,h3,h4 {font-family:'Manrope',sans-serif!important;letter-spacing:-.035em;color:var(--ink)}
 h1 {font-weight:800!important}
 div[data-testid="stMetric"] {background:white;border:1px solid var(--line);border-radius:17px;padding:15px 18px;box-shadow:0 7px 24px rgba(14,44,37,.035)}
@@ -175,12 +175,12 @@ div[data-testid="stMetric"] {background:white;border:1px solid var(--line);borde
 .stButton button[kind="primary"],.stDownloadButton button[kind="primary"]{background:#087b72;color:white;border-radius:12px;border:0;font-weight:750}
 .stButton button,.stDownloadButton button {border-radius:12px;font-weight:600}
 [data-testid="stHorizontalBlock"] {gap:1rem}
-.hero {position:relative;background:linear-gradient(115deg,#11343a 0%,#0e665e 72%,#0d8875 100%);padding:38px 42px;border-radius:24px;color:white;overflow:hidden;margin-bottom:24px}
-.hero::after{content:'';position:absolute;width:320px;height:320px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:-65px;top:-120px;box-shadow:0 0 0 55px rgba(255,255,255,.035),0 0 0 115px rgba(255,255,255,.025)}
-.hero .eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;color:#99e8d0;text-transform:uppercase;margin-bottom:16px}
-.hero h1{color:white!important;font-size:clamp(30px,4vw,49px)!important;line-height:1.13;margin:0 0 12px;font-weight:800}
-.hero p{font-size:16px;line-height:1.7;max-width:660px;color:#d6ebe6;margin:0}
-.hero .tag{display:inline-block;margin-top:20px;border:1px solid #82c6b5;color:#eafff7;border-radius:99px;padding:7px 12px;font-size:11px;font-weight:800}
+.hero {position:relative;background:linear-gradient(110deg,#11343a 0%,#0e665e 75%,#138a77 100%);padding:20px 28px;border-radius:18px;color:white;overflow:hidden;margin:12px 0 22px}
+.hero::after{content:'';position:absolute;width:165px;height:165px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:-40px;top:-65px;box-shadow:0 0 0 35px rgba(255,255,255,.035)}
+.hero .eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;color:#99e8d0;text-transform:uppercase;margin-bottom:7px}
+.hero h1{color:white!important;font-size:clamp(23px,2.7vw,34px)!important;line-height:1.16;margin:0 0 7px;font-weight:800}
+.hero p{font-size:13px;line-height:1.5;max-width:820px;color:#d6ebe6;margin:0}
+.hero .tag{display:inline-block;margin-top:10px;border:1px solid #82c6b5;color:#eafff7;border-radius:99px;padding:4px 10px;font-size:10px;font-weight:800}
 .section-kicker {font-size:11px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:var(--teal);margin:12px 0 4px}
 .section-title {font-family:'Manrope';font-size:27px;font-weight:800;letter-spacing:-.04em;color:var(--ink);margin:0 0 8px}
 .section-subtitle{font-size:14px;color:var(--sub);line-height:1.75;margin:0 0 22px}
@@ -196,7 +196,18 @@ div[data-testid="stMetric"] {background:white;border:1px solid var(--line);borde
 .note {border-left:3px solid #0a8d79;border-radius:0 10px 10px 0;padding:11px 17px;background:#e8f5f0;color:#365d55;font-size:13px;line-height:1.7;margin:14px 0}
 .pill{display:inline-block;padding:6px 11px;border:1px solid #a1cfc1;border-radius:100px;color:#0d6255;background:#edf8f2;font-size:11px;font-weight:800;margin-right:6px}
 .footer {padding-top:30px;margin-top:30px;border-top:1px solid var(--line);color:#667873;font-size:12px;line-height:1.7}
-@media(max-width:750px){.hero{padding:27px 23px}.stat-strip{grid-template-columns:1fr}.block-container{padding-top:1rem}}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;background:white;border:1px solid var(--line);border-radius:16px;padding:12px 20px;margin-bottom:10px;box-shadow:0 5px 20px rgba(10,40,35,.035)}
+.topbar .brand{display:flex;align-items:center;gap:11px;font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
+.topbar .mark{background:#087b72;color:white;display:grid;place-items:center;width:32px;height:32px;border-radius:11px;font-size:18px}
+.topbar .meta{color:#647872;font-size:11px;font-weight:700;letter-spacing:.05em}
+.nav-caption{font-size:11px;color:#71837d;font-weight:750;margin:0 0 5px 5px;text-transform:uppercase;letter-spacing:.12em}
+/* Streamlit radio styled as a horizontal application-navigation bar */
+.st-key-pagina_principal {border:1px solid #e4eae6;background:#fff;padding:7px 9px;border-radius:15px;margin-bottom:8px}
+.st-key-pagina_principal [role="radiogroup"] {display:flex;gap:5px;flex-wrap:wrap}
+.st-key-pagina_principal label {padding:8px 12px;border-radius:10px;margin:0;font-size:13px;font-weight:650;transition:background .15s}
+.st-key-pagina_principal label:has(input:checked) {background:#e3f3ed!important;color:#065f53!important}
+.st-key-pagina_principal label:hover {background:#edf4f0}
+@media(max-width:750px){.hero{padding:16px 18px}.hero h1{font-size:24px!important}.topbar{padding:10px 12px}.topbar .meta{display:none}.stat-strip{grid-template-columns:1fr}.block-container{padding-top:1rem}}
 </style>
 """
 st.markdown(CSS,unsafe_allow_html=True)
@@ -220,30 +231,22 @@ def plot_theme(fig,height=390):
 def section_footer():
     st.markdown('<div class="footer"><b>CEP Invisível · FIAP Global Solution 2026</b> · Dados oficiais IBGE Censo 2022 · Protótipo CitizenTech. Resultados observados, previsões e simulações representam conceitos diferentes. Nenhuma estimativa causal de impacto é apresentada.</div>',unsafe_allow_html=True)
 
-# Manter página e layout orientados ao público, não aos artefatos técnicos
+# Navegação principal horizontal: sem menu lateral, com aparência de produto digital.
 pages=['Panorama','Explorar territórios','Inteligência preditiva','Laboratório de cenários','Como funciona']
-with st.sidebar:
-    st.markdown('### ◈ CEP INVISÍVEL')
-    st.caption('INTELIGÊNCIA TERRITORIAL')
-    st.divider()
-    page=st.radio('EXPLORAR',pages,label_visibility='collapsed')
-    st.divider()
-    st.markdown('**Escopo validado**')
-    st.caption('São Paulo · 96 distritos · Censo 2022')
-    st.caption('Brasilândia × Consolação')
-    st.markdown('<span class="pill">MVP acadêmico</span>',unsafe_allow_html=True)
-    st.divider()
-    st.caption('Os custos e as prioridades de rampas e abrigos são hipóteses, não observações oficiais.')
+st.markdown("""<div class="topbar"><div class="brand"><span class="mark">◈</span>CEP INVISÍVEL</div>
+<div class="meta">INTELIGÊNCIA TERRITORIAL &nbsp;·&nbsp; SÃO PAULO &nbsp;·&nbsp; CENSO 2022</div></div>""",unsafe_allow_html=True)
+page=st.radio('Navegação',pages,horizontal=True,label_visibility='collapsed',key='pagina_principal')
 
 df,pred,metrics,cv,district,base=load_data()
 obs=observed_by_district(df)
 ob=obs.set_index('distrito')
 bra=float(ob.loc['Brasilândia','deficit_pct']); con=float(ob.loc['Consolação','deficit_pct'])
 
-st.markdown("""<div class="hero"><div class="eyebrow">CitizenTech / São Paulo / Censo 2022</div>
-<h1>O endereço não deveria<br>definir seu futuro.</h1>
-<p>Transformamos dados urbanos em evidências visuais para entender desigualdades, avaliar previsões e explorar decisões de investimento com transparência.</p>
-<span class="tag">CEP INVISÍVEL · PROTÓTIPO ACADÊMICO</span></div>""",unsafe_allow_html=True)
+if page=='Panorama':
+    st.markdown("""<div class="hero"><div class="eyebrow">CitizenTech · Protótipo acadêmico</div>
+    <h1>O endereço não deveria definir seu futuro.</h1>
+    <p>Inteligência territorial para enxergar desigualdades, avaliar previsões e explorar prioridades com transparência.</p>
+    <span class="tag">DADOS REAIS DO IBGE · 2022</span></div>""",unsafe_allow_html=True)
 
 if page=='Panorama':
     heading('01 / O DIAGNÓSTICO','Duas regiões. Realidades diferentes.',
@@ -272,27 +275,38 @@ if page=='Panorama':
 
 elif page=='Explorar territórios':
     heading('02 / GEOGRAFIA','Onde a desigualdade aparece','O município é exibido como contexto; apenas Brasilândia e Consolação possuem setores destacados e dados observados nesta visualização.')
-    geo_path=DATA/'setores_dois_distritos_mapa.geojson'; city_path=DATA/'municipio_sp_contexto.geojson'
-    if geo_path.is_file() and city_path.is_file():
+    # GitHub: colocar os dois GeoJSONs na raiz, ao lado de app.py, ou na pasta data/.
+    local_dirs=[DATA, ROOT, ROOT/'data']
+    local_dir=next((p for p in local_dirs if (p/'setores_dois_distritos_mapa.geojson').is_file()
+                    and (p/'municipio_sp_contexto.geojson').is_file()),None)
+    if local_dir is not None:
         try:
-            focus=json.loads(geo_path.read_text(encoding='utf-8'))
-            city=json.loads(city_path.read_text(encoding='utf-8'))
-            if len(focus.get('features',[]))!=740 or not city.get('features'):
-                raise ValueError('GeoJSONs locais não correspondem aos dados homologados')
+            focus=json.loads((local_dir/'setores_dois_distritos_mapa.geojson').read_text(encoding='utf-8'))
+            city=json.loads((local_dir/'municipio_sp_contexto.geojson').read_text(encoding='utf-8'))
+            validate_geo(focus,city)
         except (ValueError,json.JSONDecodeError) as e:
-            st.error(f'Arquivos geográficos inválidos: {e}');st.stop()
-        st.success('Geometrias locais carregadas. Os visitantes não precisam enviar arquivos.')
+            st.error(f'Arquivos geográficos locais inválidos: {e}');st.stop()
+        st.caption('Fonte geográfica oficial carregada automaticamente · IBGE Censo 2022')
     else:
-        with st.container(border=True):
-            st.markdown('**Carregar os mapas homologados**')
-            st.caption('Envie `CEP_Invisivel_1_4_resultados.zip`, produzido na Etapa 1.4. Nenhuma geometria será simulada.')
-            uploaded=st.file_uploader('Arquivo ZIP geográfico',type=['zip'],key='geo')
-        if uploaded is None:
-            st.info('Os indicadores estão disponíveis. Para visualizar os polígonos, envie o ZIP da Etapa 1.4; se você publicar os dois GeoJSONs junto aos CSVs no GitHub, eles aparecerão automaticamente para todos.')
-            st.stop()
-        try: focus,city=parse_geo(uploaded.getvalue())
-        except (ValueError,zipfile.BadZipFile,KeyError,TypeError) as e:
-            st.error(f'O ZIP não passou na validação: {e}');st.stop()
+        # Caminho ainda mais simples no GitHub: enviar apenas o ZIP final para a raiz.
+        archive_candidates=[folder/name for folder in [DATA,ROOT,ROOT/'data']
+            for name in ('CEP_Invisivel_1_4_resultados.zip','CEP_Invisivel_1_4_resultados (1).zip')]
+        geo_archive=next((p for p in archive_candidates if p.is_file()),None)
+        if geo_archive is not None:
+            try:focus,city=parse_geo(geo_archive.read_bytes())
+            except (ValueError,zipfile.BadZipFile,KeyError,TypeError) as e:
+                st.error(f'ZIP geográfico publicado no GitHub é inválido: {e}');st.stop()
+            st.caption('Mapa carregado automaticamente do pacote geográfico homologado · IBGE Censo 2022')
+        else:
+            st.info('Para disponibilizar o mapa automaticamente a todos os visitantes, envie '
+                    '`CEP_Invisivel_1_4_resultados.zip` ao GitHub na mesma pasta de `app.py`. '
+                    'Alternativamente, publique os dois GeoJSONs extraídos do ZIP. '
+                    'Não é necessário modificar o código novamente.')
+            uploaded=st.file_uploader('Teste temporário: ZIP geográfico da Etapa 1.4',type=['zip'],key='geo')
+            if uploaded is None:st.stop()
+            try:focus,city=parse_geo(uploaded.getvalue())
+            except (ValueError,zipfile.BadZipFile,KeyError,TypeError) as e:
+                st.error(f'O ZIP não passou na validação: {e}');st.stop()
     choice=st.radio('Indicador exibido',['Déficit observado','Erro do modelo'],horizontal=True)
     render_map(focus,city,pred,'deficit' if choice=='Déficit observado' else 'residuo')
     st.markdown('<div class="note">Mapa interativo sem mosaicos externos. Resíduo positivo significa que o modelo subestimou o déficit observado. Os dois distritos estão no conjunto de teste.</div>',unsafe_allow_html=True)
